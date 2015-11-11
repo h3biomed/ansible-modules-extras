@@ -135,7 +135,6 @@ EXAMPLES = '''
     public_port: 53
     private_port: 53
     protocol: udp
-    open_firewall: true
 
 # remove ssh port forwarding
 - local_action:
@@ -368,33 +367,28 @@ class AnsibleCloudStackPortforwarding(AnsibleCloudStack):
 
 
 def main():
+    argument_spec = cs_argument_spec()
+    argument_spec.update(dict(
+        ip_address = dict(required=True),
+        protocol= dict(choices=['tcp', 'udp'], default='tcp'),
+        public_port = dict(type='int', required=True),
+        public_end_port = dict(type='int', default=None),
+        private_port = dict(type='int', required=True),
+        private_end_port = dict(type='int', default=None),
+        state = dict(choices=['present', 'absent'], default='present'),
+        open_firewall = dict(choices=BOOLEANS, default=False),
+        vm_guest_ip = dict(default=None),
+        vm = dict(default=None),
+        zone = dict(default=None),
+        domain = dict(default=None),
+        account = dict(default=None),
+        project = dict(default=None),
+        poll_async = dict(choices=BOOLEANS, default=True),
+    ))
+
     module = AnsibleModule(
-        argument_spec = dict(
-            ip_address = dict(required=True),
-            protocol= dict(choices=['tcp', 'udp'], default='tcp'),
-            public_port = dict(type='int', required=True),
-            public_end_port = dict(type='int', default=None),
-            private_port = dict(type='int', required=True),
-            private_end_port = dict(type='int', default=None),
-            state = dict(choices=['present', 'absent'], default='present'),
-            open_firewall = dict(choices=BOOLEANS, default=False),
-            vm_guest_ip = dict(default=None),
-            vm = dict(default=None),
-            zone = dict(default=None),
-            domain = dict(default=None),
-            account = dict(default=None),
-            project = dict(default=None),
-            poll_async = dict(choices=BOOLEANS, default=True),
-            api_key = dict(default=None),
-            api_secret = dict(default=None, no_log=True),
-            api_url = dict(default=None),
-            api_http_method = dict(choices=['get', 'post'], default='get'),
-            api_timeout = dict(type='int', default=10),
-            api_region = dict(default='cloudstack'),
-        ),
-        required_together = (
-            ['api_key', 'api_secret', 'api_url'],
-        ),
+        argument_spec=argument_spec,
+        required_together=cs_required_together(),
         supports_check_mode=True
     )
 

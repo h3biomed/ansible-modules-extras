@@ -46,7 +46,9 @@ options:
             - Comment associated with the zone
         required: false
         default: ''
-extends_documentation_fragment: aws
+extends_documentation_fragment:
+    - aws
+    - ec2
 author: "Christopher Troup (@minichate)"
 '''
 
@@ -81,6 +83,9 @@ def main():
     vpc_id = module.params.get('vpc_id')
     vpc_region = module.params.get('vpc_region')
     comment = module.params.get('comment')
+
+    if zone_in[-1:] != '.':
+        zone_in += "."
 
     private_zone = vpc_id is not None and vpc_region is not None
 

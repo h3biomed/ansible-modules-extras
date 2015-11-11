@@ -39,7 +39,7 @@ options:
     default: null
   routes:
     description:
-      - "List of routes in the route table. Routes are specified as dicts containing the keys 'dest' and one of 'gateway_id', 'instance_id', 'interface_id', or 'vpc_peering_connection'. If 'gateway_id' is specified, you can refer to the VPC's IGW by using the value 'igw'."
+      - "List of routes in the route table. Routes are specified as dicts containing the keys 'dest' and one of 'gateway_id', 'instance_id', 'interface_id', or 'vpc_peering_connection_id'. If 'gateway_id' is specified, you can refer to the VPC's IGW by using the value 'igw'."
     required: true
   state:
     description:
@@ -53,7 +53,7 @@ options:
     required: true
   tags:
     description:
-      - "A dictionary array of resource tags of the form: { tag1: value1, tag2: value2 }. Tags in this list are used to uniquely identify route tables within a VPC when the route_table_id is not supplied."
+      - "A dictionary of resource tags of the form: { tag1: value1, tag2: value2 }. Tags are used to uniquely identify route tables within a VPC when the route_table_id is not supplied."
     required: false
     default: null
     aliases: [ "resource_tags" ]
@@ -61,8 +61,9 @@ options:
     description:
       - "VPC ID of the VPC in which to create the route table."
     required: true
-
-extends_documentation_fragment: aws
+extends_documentation_fragment:
+    - aws
+    - ec2
 '''
 
 EXAMPLES = '''
@@ -89,7 +90,7 @@ EXAMPLES = '''
     vpc_id: vpc-1245678
     region: us-west-1
     tags:
-      - Name: Internal
+      Name: Internal
     subnets:
       - "{{ application_subnet.subnet_id }}"
       - 'Database Subnet'
@@ -497,9 +498,12 @@ def ensure_route_table_present(connection, module):
     # If no route table returned then create new route table
     if route_table is None:
         try:
-            route_table = connection.create_route_table(vpc_id, check_mode)
+            route_table = connection.create_route_table(vpc_id, module.check_mode)
             changed = True
-        except EC2ResponseError, e:
+        except EC2ResponseError as e:
+            if e.error_code == 'DryRunOperation':
+                module.exit_json(changed=True)
+
             module.fail_json(msg=e.message)
         
     if routes is not None:
