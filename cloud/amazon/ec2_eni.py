@@ -139,7 +139,6 @@ import re
 try:
     import boto.ec2
     from boto.exception import BotoServerError
-    from boto.vpc import VPCConnection
     HAS_BOTO = True
 except ImportError:
     HAS_BOTO = False
@@ -204,12 +203,8 @@ def create_eni(connection, module):
     private_ip_address = module.params.get('private_ip_address')
     description = module.params.get('description')
     security_groups = module.params.get('security_groups')
-    security_group_names = module.params.get('security_group_names')
     changed = False
     
-    if security_group_names:
-        security_groups = security_group_names_to_ids(connection, module)
-
     try:
         eni = compare_eni(connection, module)
         if eni is None:
@@ -245,14 +240,11 @@ def modify_eni(connection, module):
     private_ip_address = module.params.get('private_ip_address')
     description = module.params.get('description')
     security_groups = module.params.get('security_groups')
-    security_group_names = module.params.get('security_group_names')
     force_detach = module.params.get("force_detach")
     source_dest_check = module.params.get("source_dest_check")
     delete_on_termination = module.params.get("delete_on_termination")
     changed = False
 
-    if security_group_names:
-        security_groups = security_group_names_to_ids(connection, module)
     
     try:
         # Get the eni with the eni_id specified
@@ -332,10 +324,6 @@ def compare_eni(connection, module):
     private_ip_address = module.params.get('private_ip_address')
     description = module.params.get('description')
     security_groups = module.params.get('security_groups')
-    security_group_names = module.params.get('security_group_names')
-
-    if security_group_names:
-        security_groups = security_group_names_to_ids(connection, module)
     
     try:
         all_eni = connection.get_all_network_interfaces(eni_id)
@@ -360,38 +348,6 @@ def get_sec_group_list(groups):
     return remote_security_groups
 
 
-def security_group_names_to_ids(connection, module):
-
-    subnet_id = module.params.get('subnet_id')
-    security_group_names = module.params.get('security_group_names')
-
-    region, ec2_url, aws_connect_params = get_aws_connection_info(module)
-
-    try:
-        vpc = connect_to_aws(boto.vpc, region, **aws_connect_params)
-    except (boto.exception.NoAuthHandlerFound, StandardError), e:
-        module.fail_json(msg=str(e))
-
-    vpc_id = vpc.get_all_subnets(subnet_ids=[subnet_id])[0].vpc_id
-
-    remote_security_groups = \
-        connection.get_all_security_groups(filters={'vpc_id': vpc_id})
-
-    names_to_ids = {}
-    for remote_security_group in remote_security_groups:
-        names_to_ids[remote_security_group.name] = remote_security_group.id
-
-    security_groups = []
-    for security_group in security_group_names:
-        if security_group not in names_to_ids:
-            module.fail_json(
-                msg=('nonexistent security group "%s"' % security_group)
-            )
-        security_groups.append(names_to_ids[security_group])
-
-    return security_groups
-
-
 def main():
     argument_spec = ec2_argument_spec()
     argument_spec.update(
@@ -402,7 +358,6 @@ def main():
             subnet_id = dict(),
             description = dict(),
             security_groups = dict(type='list'),           
-            security_group_names = dict(type='list'),
             device_index = dict(default=0, type='int'),
             state = dict(default='present', choices=['present', 'absent']),
             force_detach = dict(default='no', type='bool'),
@@ -411,12 +366,7 @@ def main():
         )
     )
     
-    module = AnsibleModule(
-        argument_spec=argument_spec,
-        mutually_exclusive=[
-                            ['security_groups', 'security_group_names'],
-                           ],
-    )
+    module = AnsibleModule(argument_spec=argument_spec)
 
     if not HAS_BOTO:
         module.fail_json(msg='boto required for this module')
